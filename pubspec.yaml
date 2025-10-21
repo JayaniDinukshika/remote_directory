@@ -39,6 +39,8 @@ dependencies:
   connectivity_plus: ^7.0.0
   cached_network_image: ^3.4.1
   dio: ^5.9.0
+  shimmer: ^3.0.0
+  debounce_throttle: ^2.0.0
 
 dev_dependencies:
   flutter_test:

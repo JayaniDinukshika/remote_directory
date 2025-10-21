@@ -1,125 +1,205 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:debounce_throttle/debounce_throttle.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../../data/ models/character.dart';
 import '../../../data/repository/character_repository.dart';
 
-enum LoadStatus { idle, loading, success, empty, error }
+sealed class LoadStatus {
+  const LoadStatus();
+}
 
-class DirectoryProvider extends ChangeNotifier {
+class Loading extends LoadStatus {
+  const Loading();
+}
+
+class Success extends LoadStatus {
+  const Success();
+}
+
+class Empty extends LoadStatus {
+  const Empty();
+}
+
+class Error extends LoadStatus {
+  final String message;
+  const Error(this.message);
+}
+
+class DirectoryProvider with ChangeNotifier {
   final CharacterRepository repo;
   final Box cacheBox;
+  final Box favoritesBox;
+  final Connectivity connectivity;
 
-  DirectoryProvider(this.repo, this.cacheBox);
+  DirectoryProvider({
+    required this.repo,
+    required this.cacheBox,
+    required this.favoritesBox,
+    required this.connectivity,
+  });
 
-  final List<Character> _items = [];
-  List<Character> get items => _query.isEmpty ? _items : _filtered;
-  final List<Character> _filtered = [];
-
-  LoadStatus status = LoadStatus.idle;
-  String? errorMessage;
-  bool hasNext = false;
-  int _page = 1;
-
-  // offline
-  bool offlineMode = false;
-
-  // search
+  List<Character> _allItems = [];
+  List<Character> get items => _allItems;
+  LoadStatus _status = const Loading();
+  LoadStatus get status => _status;
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+  bool _offlineMode = false;
+  bool get offlineMode => _offlineMode;
+  int _currentPage = 1;
+  bool _hasNext = true;
   String _query = '';
-  Timer? _debounce;
+  Set<int> _favorites = {};
+  Set<int> get favorites => _favorites;
+  bool _isLoadingMore = false; // State for load more
+
+  // Initialize Debouncer with initialValue
+  final _debouncer = Debouncer<String>(const Duration(milliseconds: 500), initialValue: '');
 
   Future<void> init() async {
-    // try cached data first
-    final cache = repo.readCache(cacheBox);
-    if (cache.items.isNotEmpty) {
-      _items
-        ..clear()
-        ..addAll(cache.items);
-      hasNext = cache.hasNext;
-      _page = cache.page;
-      offlineMode = true; // will flip to false if network fetch succeeds
-      status = LoadStatus.success;
-      notifyListeners();
-    }
-
-    // then try fetching fresh page 1
-    await refresh();
-  }
-
-  Future<void> refresh() async {
-    status = LoadStatus.loading;
-    errorMessage = null;
-    offlineMode = false;
+    _status = const Loading();
     notifyListeners();
     try {
-      final (list, next) = await repo.getPage(1);
-      _items
-        ..clear()
-        ..addAll(list);
-      hasNext = next;
-      _page = 1;
-      status = _items.isEmpty ? LoadStatus.empty : LoadStatus.success;
-      repo.writeCache(cacheBox, _items, _page, hasNext);
-    } catch (e) {
-      // fall back to whatever cache we have
-      if (_items.isNotEmpty) {
-        offlineMode = true;
-        status = LoadStatus.success;
+      await _checkConnectivity();
+      if (_offlineMode) {
+        _loadCache();
       } else {
-        status = LoadStatus.error;
-        errorMessage = 'Failed to load. Please try again.';
+        await _fetchPage();
       }
+      _loadFavorites();
+    } catch (e) {
+      _status = Error(e.toString());
+      _errorMessage = e.toString();
+      notifyListeners();
     }
-    _applySearch();
+  }
+
+  Future<void> _checkConnectivity() async {
+    final result = await connectivity.checkConnectivity();
+    _offlineMode = result == ConnectivityResult.none;
+  }
+
+  Future<void> _fetchPage() async {
+    try {
+      print('Fetching page $_currentPage, hasNext: $_hasNext, current items: ${_allItems.length}');
+      final (newItems, hasNext) = await repo.getPage(_currentPage);
+      print('Fetched ${newItems.length} new items, server hasNext: $hasNext');
+      if (newItems.isEmpty && _allItems.isEmpty) {
+        _status = const Empty();
+      } else {
+        _allItems.addAll(newItems);
+        _hasNext = hasNext; // Must reflect server response
+        _status = const Success();
+        repo.writeCache(cacheBox, _allItems, _currentPage, _hasNext);
+        print('Total items: ${_allItems.length}, updated hasNext: $_hasNext');
+      }
+    } catch (e) {
+      print('Fetch error: $e');
+      if (_allItems.isEmpty) {
+        _status = Error(e.toString());
+        _errorMessage = e.toString();
+      }
+    } finally {
+      _isLoadingMore = false; // Reset loading state
+      notifyListeners();
+    }
+  }
+
+  void _loadCache() {
+    try {
+      final cached = repo.readCache(cacheBox);
+      if (cached != null && cached.items != null && cached.items is List<Character> && cached.items.isNotEmpty) {
+        _allItems = List<Character>.from(cached.items);
+        _currentPage = cached.page ?? 1;
+        _hasNext = cached.hasNext ?? false;
+        _status = const Success();
+        print('Cache loaded: ${_allItems.length} items, hasNext: $_hasNext');
+      } else {
+        _status = const Empty();
+        print('Cache empty or invalid');
+      }
+    } catch (e) {
+      print('Cache error: $e');
+      _status = Error(e.toString());
+      _errorMessage = e.toString();
+    }
     notifyListeners();
   }
 
   Future<void> loadMore() async {
-    if (!hasNext || status == LoadStatus.loading) return;
-    status = LoadStatus.loading;
-    notifyListeners();
-    try {
-      final nextPage = _page + 1;
-      final (list, next) = await repo.getPage(nextPage);
-      _items.addAll(list);
-      hasNext = next;
-      _page = nextPage;
-      status = LoadStatus.success;
-      repo.writeCache(cacheBox, _items, _page, hasNext);
-    } catch (_) {
-      status = LoadStatus.success; // keep current data; maybe show a toast in UI
+    if (_isLoadingMore || !_hasNext || _offlineMode || _status is! Success) {
+      print('Load more skipped: loading=$_isLoadingMore, hasNext=$_hasNext, offline=$_offlineMode, status=$_status');
+      return;
     }
-    _applySearch();
+    _isLoadingMore = true;
     notifyListeners();
+    _currentPage++;
+    await _fetchPage();
   }
 
-  void onSearchChanged(String q) {
-    _query = q.trim();
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 450), () {
-      _applySearch();
+  Future<void> refresh() async {
+    await _checkConnectivity();
+    if (_offlineMode) {
+      _loadCache();
+      return;
+    }
+    _allItems.clear();
+    _currentPage = 1;
+    _hasNext = true;
+    _status = const Loading();
+    notifyListeners();
+    await _fetchPage();
+  }
+
+  Timer? _debounceTimer;
+
+  void onSearchChanged(String value) {
+    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      _query = value.trim();
+      _allItems.clear();
+      _currentPage = 1;
+      _hasNext = true;
+      _status = const Loading();
       notifyListeners();
+      if (_offlineMode) {
+        _loadCache();
+        _allItems = _allItems.where((c) => c.name.toLowerCase().contains(_query.toLowerCase())).toList();
+        _status = _allItems.isEmpty ? const Empty() : const Success();
+        notifyListeners();
+      } else {
+        await _fetchPage();
+        _allItems = _allItems.where((c) => c.name.toLowerCase().contains(_query.toLowerCase())).toList();
+        _status = _allItems.isEmpty ? const Empty() : const Success();
+        notifyListeners();
+      }
     });
   }
 
-  void _applySearch() {
-    if (_query.isEmpty) {
-      _filtered.clear();
-      return;
-    }
-    final q = _query.toLowerCase();
-    _filtered
-      ..clear()
-      ..addAll(_items.where((c) =>
-      c.name.toLowerCase().contains(q) ||
-          c.species.toLowerCase().contains(q) ||
-          c.status.toLowerCase().contains(q)));
+  void _loadFavorites() {
+    _favorites = (favoritesBox.keys.cast<int>().toSet());
+    notifyListeners();
   }
 
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
+  void toggleFavorite(int id, bool isFavorite) {
+    if (isFavorite) {
+      favoritesBox.put(id, true);
+      _favorites.add(id);
+    } else {
+      favoritesBox.delete(id);
+      _favorites.remove(id);
+    }
+    notifyListeners();
   }
+
+  List<Character> getFavorites() {
+    return _allItems.where((c) => _favorites.contains(c.id)).toList();
+  }
+
+  bool get hasNext => _hasNext; // Explicitly define hasNext getter
+  bool get isLoadingMore => _isLoadingMore; // Explicitly define isLoadingMore getter
 }
