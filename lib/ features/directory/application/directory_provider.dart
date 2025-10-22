@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:debounce_throttle/debounce_throttle.dart';
 import 'package:flutter/foundation.dart';
@@ -55,9 +55,8 @@ class DirectoryProvider with ChangeNotifier {
   String _query = '';
   Set<int> _favorites = {};
   Set<int> get favorites => _favorites;
-  bool _isLoadingMore = false; // State for load more
+  bool _isLoadingMore = false;
 
-  // Initialize Debouncer with initialValue
   final _debouncer = Debouncer<String>(const Duration(milliseconds: 500), initialValue: '');
 
   Future<void> init() async {
@@ -72,8 +71,15 @@ class DirectoryProvider with ChangeNotifier {
       }
       _loadFavorites();
     } catch (e) {
-      _status = Error(e.toString());
-      _errorMessage = e.toString();
+      // ✅ If API fails, still try to load cache
+      if (_allItems.isEmpty) {
+        try {
+          _loadCache();
+        } catch (_) {
+          _status = Error(e.toString());
+          _errorMessage = e.toString();
+        }
+      }
       notifyListeners();
     }
   }
@@ -92,19 +98,29 @@ class DirectoryProvider with ChangeNotifier {
         _status = const Empty();
       } else {
         _allItems.addAll(newItems);
-        _hasNext = hasNext; // Must reflect server response
+        _hasNext = hasNext;
         _status = const Success();
         repo.writeCache(cacheBox, _allItems, _currentPage, _hasNext);
         print('Total items: ${_allItems.length}, updated hasNext: $_hasNext');
       }
+    } on SocketException catch (e) {
+      // ✅ Handle network failure gracefully
+      print('SocketException: $e');
+      _offlineMode = true;
+      _loadCache();
     } catch (e) {
       print('Fetch error: $e');
       if (_allItems.isEmpty) {
-        _status = Error(e.toString());
-        _errorMessage = e.toString();
+        // Try cache if available
+        try {
+          _loadCache();
+        } catch (_) {
+          _status = Error(e.toString());
+          _errorMessage = e.toString();
+        }
       }
     } finally {
-      _isLoadingMore = false; // Reset loading state
+      _isLoadingMore = false;
       notifyListeners();
     }
   }
@@ -200,6 +216,6 @@ class DirectoryProvider with ChangeNotifier {
     return _allItems.where((c) => _favorites.contains(c.id)).toList();
   }
 
-  bool get hasNext => _hasNext; // Explicitly define hasNext getter
-  bool get isLoadingMore => _isLoadingMore; // Explicitly define isLoadingMore getter
+  bool get hasNext => _hasNext;
+  bool get isLoadingMore => _isLoadingMore;
 }

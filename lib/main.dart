@@ -8,7 +8,8 @@ import ' features/directory/application/directory_provider.dart';
 import 'core/theme_provider.dart';
 import 'data/repository/character_repository.dart';
 import 'data/remote/character_api.dart';
-import 'home_screen.dart';
+import 'splash_screen.dart';
+import 'landing_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -89,7 +90,7 @@ class MyApp extends StatelessWidget {
               ),
             ),
             themeMode: themeProvider.themeMode,
-            home: const HomeScreen(),
+            home: const SplashScreen(),
           );
         },
       ),
