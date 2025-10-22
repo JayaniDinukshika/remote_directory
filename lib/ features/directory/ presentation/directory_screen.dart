@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../data/ models/character.dart';
+
 import '../application/directory_provider.dart';
 import 'character_detail_screen.dart';
 
@@ -86,19 +87,35 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
             if (!widget.isFavorites)
               Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: TextField(
                   onChanged: vm.onSearchChanged,
                   decoration: InputDecoration(
-                    hintText: 'Search by name',
-                    prefixIcon: const Icon(Icons.search),
+                    hintText: 'Search here...',
+                    prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide(
+                        color: Colors.purple.withOpacity(0.5),
+                        width: 2,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24),
+                      borderSide: BorderSide.none,
                     ),
                     filled: true,
-                    fillColor: Theme.of(context).colorScheme.surfaceVariant,
+                    fillColor: Colors.grey[100],
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    hintStyle: TextStyle(color: Colors.grey[600], fontSize: 16),
+
                   ),
+                  style: const TextStyle(fontSize: 16, color: Colors.black87),
+                  cursorColor: Colors.purple,
                 ),
               ),
 

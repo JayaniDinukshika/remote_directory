@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:carousel_slider/carousel_slider.dart'; // Add this import for CardSetSlideshowScreen dependencies
 
+import ' features/directory/ presentation/card_set_slideshow_screen.dart';
 import ' features/directory/ presentation/directory_screen.dart';
 import 'core/theme_provider.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,10 +63,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     NavigationRailDestination(icon: Icon(Icons.favorite), label: Text('Favorites')),
                   ],
                 ),
-              Expanded(child: _screens[_selectedIndex]),
+              Expanded(
+                child: Column(
+                  children: [
+                    const CardSetSlideshowScreen(), // Add the slideshow here
+                    Expanded(child: _screens[_selectedIndex]), // Existing content
+                  ],
+                ),
+              ),
             ],
           ),
-          bottomNavigationBar: isDesktop ? null : NavigationBar(
+          bottomNavigationBar: isDesktop
+              ? null
+              : NavigationBar(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
             destinations: const [
