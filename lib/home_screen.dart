@@ -29,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _onRefresh(BuildContext context) async {
     final vm = Provider.of<DirectoryProvider>(context, listen: false);
     await vm.refresh();
-    // TODO: Add refresh logic for CardSetSlideshowScreen if needed
+
   }
 
   @override
@@ -70,8 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: Column(
                   children: [
-                    const CardSetSlideshowScreen(), // Add the slideshow here
-                    Expanded(child: _screens[_selectedIndex]), // Existing content
+                    const CardSetSlideshowScreen(), // Add the slideshow
+                    Expanded(child: _screens[_selectedIndex]),
                   ],
                 ),
               ),
@@ -83,16 +83,16 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
             backgroundColor: isDark ? Colors.grey[900] : Colors.white, // Background color for the navigation bar
-            indicatorColor: isDark ? Colors.purpleAccent : Colors.purple[100], // Color for the selected item's indicator
+            indicatorColor: isDark ? Colors.purpleAccent : Colors.purple[100],
             destinations: const [
               NavigationDestination(
                 icon: Icon(Icons.list),
-                selectedIcon: Icon(Icons.list, color: Colors.purple), // Color for selected icon
+                selectedIcon: Icon(Icons.list, color: Colors.purple),
                 label: 'All',
               ),
               NavigationDestination(
                 icon: Icon(Icons.favorite),
-                selectedIcon: Icon(Icons.favorite, color: Colors.purple), // Color for selected icon
+                selectedIcon: Icon(Icons.favorite, color: Colors.purple),
                 label: 'Favorites',
               ),
             ],

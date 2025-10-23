@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ThemeProvider with ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.dark;
+  ThemeMode _themeMode = ThemeMode.dark;  //first open dark mode
 
   ThemeMode get themeMode => _themeMode;
 
@@ -12,3 +12,4 @@ class ThemeProvider with ChangeNotifier {
     notifyListeners();
   }
 }
+// light and dark mode define

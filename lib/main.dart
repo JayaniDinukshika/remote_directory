@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart'; // ✅ fixed path
+import 'package:connectivity_plus/connectivity_plus.dart';
 import ' features/directory/application/directory_provider.dart';
-import 'core/theme_provider.dart'; // ✅ fixed path
+import 'core/theme_provider.dart';
 import 'data/repository/character_repository.dart';
 import 'data/remote/character_api.dart';
-import 'splash_screen.dart'; // (assuming these exist)
+import 'splash_screen.dart';
 
 
 Future<void> main() async {
@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
             cacheBox: cacheBox,
             favoritesBox: favoritesBox,
             connectivity: Connectivity(),
-          )..init(), // ✅ init ONCE here
+          )..init(),
         ),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
@@ -54,7 +54,7 @@ class MyApp extends StatelessWidget {
                 centerTitle: true,
                 scrolledUnderElevation: 0,
               ),
-              cardTheme: CardThemeData( // ✅ CardTheme, not CardThemeData
+              cardTheme: CardThemeData(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -80,7 +80,7 @@ class MyApp extends StatelessWidget {
                 centerTitle: true,
                 scrolledUnderElevation: 0,
               ),
-              cardTheme: CardThemeData( // ✅
+              cardTheme: CardThemeData(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

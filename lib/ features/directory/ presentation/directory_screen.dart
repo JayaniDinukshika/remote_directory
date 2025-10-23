@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
-
 import '../../../data/ models/character.dart';
 import '../application/directory_provider.dart';
 import 'character_detail_screen.dart';
@@ -29,7 +28,6 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
   @override
   void initState() {
     super.initState();
-    // ❌ DO NOT call vm.init() here; it runs once from main() now.
     _scrollController.addListener(_onScroll);
   }
 
@@ -110,7 +108,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                   controller: _searchController,
                   onChanged: (value) {
                     vm.onSearchChanged(value);
-                    setState(() {}); // Refresh UI when typing
+                    setState(() {}); // Refresh the UI when typing in search bar
                   },
                   decoration: InputDecoration(
                     hintText: 'Search here...',
@@ -120,9 +118,9 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                       icon: const Icon(Icons.close, color: Colors.grey),
                       onPressed: () {
                         _searchController.clear();
-                        vm.onSearchChanged(''); // ✅ Clear search results
-                        FocusScope.of(context).unfocus(); // Hide keyboard
-                        setState(() {}); // Refresh UI to hide the icon
+                        vm.onSearchChanged('');
+                        FocusScope.of(context).unfocus();
+                        setState(() {});
                       },
                     )
                         : null,
@@ -155,7 +153,6 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
             Expanded(
               child: RefreshIndicator(
-                // ✅ use our method to restore scroll position
                 onRefresh: () => _refresh(context),
                 child: Builder(
                   builder: (context) {

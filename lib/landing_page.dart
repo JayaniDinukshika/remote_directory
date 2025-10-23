@@ -24,39 +24,41 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
   void initState() {
     super.initState();
 
-    // Controller for text animations
+
     _textController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     );
 
-    // Controller for button slide animation
+
     _buttonController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
-    // Controller for button pulse effect
+
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
 
-    // Controller for particle animation
+
     _particleController = AnimationController(
       duration: const Duration(seconds: 10),
       vsync: this,
     )..repeat();
 
-    // Initialize particles
+
     _particles = List.generate(50, (_) => Particle());
 
-    // Fade animation for title
+
+
     _titleFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _textController, curve: Curves.easeIn),
     );
 
-    // Fade animation for subtitle (delayed)
+
+
     _subtitleFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _textController,
@@ -64,7 +66,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
       ),
     );
 
-    // Slide animation for button
+
     _buttonSlideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.5),
       end: Offset.zero,
@@ -72,18 +74,19 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
       CurvedAnimation(parent: _buttonController, curve: Curves.easeOutCubic),
     );
 
-    // Pulse animation for button
+
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Start animations
+
     _textController.forward();
     Future.delayed(const Duration(milliseconds: 500), () {
       _buttonController.forward();
     });
 
-    // Update particles on animation tick
+
+
     _particleController.addListener(() {
       setState(() {
         for (var particle in _particles) {
@@ -108,12 +111,12 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Particle animation layer
+
           CustomPaint(
             painter: ParticlePainter(particles: _particles),
             child: Container(),
           ),
-          // Background image with fallback gradient
+
           Image.asset(
             'assets/background.png',
             fit: BoxFit.cover,
@@ -127,7 +130,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
               ),
             ),
           ),
-          // Gradient overlay for readability
+
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -240,7 +243,7 @@ class _LandingPageState extends State<LandingPage> with TickerProviderStateMixin
   }
 }
 
-// Particle class to define particle properties
+
 class Particle {
   Offset position;
   Offset velocity;
@@ -251,16 +254,16 @@ class Particle {
   Particle()
       : position = Offset.zero,
         velocity = Offset(
-          Random().nextDouble() * 4 - 2, // Random x velocity (-2 to 2)
-          Random().nextDouble() * 4 - 2, // Random y velocity (-2 to 2)
+          Random().nextDouble() * 4 - 2,
+          Random().nextDouble() * 4 - 2,
         ),
-        radius = Random().nextDouble() * 5 + 2, // Random radius (2 to 7)
-        opacity = Random().nextDouble() * 0.5 + 0.3, // Random opacity (0.3 to 0.8)
+        radius = Random().nextDouble() * 5 + 2,
+        opacity = Random().nextDouble() * 0.5 + 0.3,
         color = Colors.white.withOpacity(Random().nextDouble() * 0.5 + 0.3);
 
   void update() {
     position += velocity;
-    // Wrap particles around the screen
+
     if (position.dx < 0) position = Offset(position.dx + 1000, position.dy);
     if (position.dx > 1000) position = Offset(position.dx - 1000, position.dy);
     if (position.dy < 0) position = Offset(position.dx, position.dy + 1000);
@@ -268,7 +271,7 @@ class Particle {
   }
 }
 
-// Custom painter to draw particles
+
 class ParticlePainter extends CustomPainter {
   final List<Particle> particles;
 

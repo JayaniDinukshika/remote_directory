@@ -6,7 +6,7 @@ class CardSetSlideshowScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Sample card sets for the slideshow with background assets
+    // slide show card sets
     final List<Map<String, String>> cardSets = [
       {
         'title': 'Rick & Morty',
@@ -63,7 +63,6 @@ class CardSetSlideshowScreen extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        // Background image from assets
                         Image.asset(
                           cardSet['background']!,
                           fit: BoxFit.cover,
@@ -83,7 +82,7 @@ class CardSetSlideshowScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        // Content
+
                         Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [

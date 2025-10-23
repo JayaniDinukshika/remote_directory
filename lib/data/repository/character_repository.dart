@@ -7,13 +7,13 @@ class CharacterRepository {
   final CharacterApi api;
   CharacterRepository(this.api);
 
-  // ✅ Correct record return type
+
   Future<(List<Character>, bool)> getPage(int page) async {
     final paged = await api.fetchPage(page: page);
     return (paged.results, paged.hasNext);
   }
 
-  // Cache helpers (store as plain Maps to avoid adapters)
+
   static const _cacheKey = 'lastCharacters';
   static const _pageKey = 'lastPage';
   static const _hasNextKey = 'lastHasNext';

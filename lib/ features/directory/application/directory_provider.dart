@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-
 import '../../../data/ models/character.dart';
 import '../../../data/repository/character_repository.dart';
 
@@ -69,7 +68,6 @@ class DirectoryProvider with ChangeNotifier {
       }
       _loadFavorites();
     } catch (e) {
-      // If API fails, still try cache
       if (_allItems.isEmpty) {
         try {
           _loadCache();
@@ -111,14 +109,12 @@ class DirectoryProvider with ChangeNotifier {
       if (newItems.isEmpty && _allItems.isEmpty) {
         _status = const Empty();
       } else {
-        // De-dup and append
         final ids = _allItems.map((e) => e.id).toSet();
         _allItems.addAll(newItems.where((it) => !ids.contains(it.id)));
 
         _hasNext = hasNext;
         _status = const Success();
 
-        // write cache after a successful fetch
         repo.writeCache(cacheBox, _allItems, _currentPage, _hasNext);
       }
     } on SocketException catch (e) {
@@ -194,7 +190,6 @@ class DirectoryProvider with ChangeNotifier {
         _status = _allItems.isEmpty ? const Empty() : const Success();
         notifyListeners();
       } else {
-        // Re-fetch from first page, then filter client-side
         _allItems.clear();
         _currentPage = 1;
         _hasNext = true;
