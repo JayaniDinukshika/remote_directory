@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-
+import 'package:connectivity_plus/connectivity_plus.dart'; // ✅ fixed path
 import ' features/directory/application/directory_provider.dart';
-
-import 'core/theme_provider.dart';
+import 'core/theme_provider.dart'; // ✅ fixed path
 import 'data/repository/character_repository.dart';
 import 'data/remote/character_api.dart';
-import 'splash_screen.dart';
-import 'landing_page.dart';
+import 'splash_screen.dart'; // (assuming these exist)
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +32,7 @@ class MyApp extends StatelessWidget {
             cacheBox: cacheBox,
             favoritesBox: favoritesBox,
             connectivity: Connectivity(),
-          )..init(),
+          )..init(), // ✅ init ONCE here
         ),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
@@ -56,12 +54,15 @@ class MyApp extends StatelessWidget {
                 centerTitle: true,
                 scrolledUnderElevation: 0,
               ),
-              cardTheme:  CardThemeData(
+              cardTheme: CardThemeData( // ✅ CardTheme, not CardThemeData
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               textTheme: const TextTheme(
-                headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                headlineSmall:
+                TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 bodyLarge: TextStyle(fontSize: 16),
                 bodyMedium: TextStyle(fontSize: 14, color: Colors.grey),
               ),
@@ -79,12 +80,15 @@ class MyApp extends StatelessWidget {
                 centerTitle: true,
                 scrolledUnderElevation: 0,
               ),
-              cardTheme: CardThemeData(
+              cardTheme: CardThemeData( // ✅
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               textTheme: const TextTheme(
-                headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                headlineSmall:
+                TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 bodyLarge: TextStyle(fontSize: 16),
                 bodyMedium: TextStyle(fontSize: 14, color: Colors.grey),
               ),

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:debounce_throttle/debounce_throttle.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -11,19 +10,9 @@ import '../../../data/repository/character_repository.dart';
 sealed class LoadStatus {
   const LoadStatus();
 }
-
-class Loading extends LoadStatus {
-  const Loading();
-}
-
-class Success extends LoadStatus {
-  const Success();
-}
-
-class Empty extends LoadStatus {
-  const Empty();
-}
-
+class Loading extends LoadStatus { const Loading(); }
+class Success extends LoadStatus { const Success(); }
+class Empty extends LoadStatus { const Empty(); }
 class Error extends LoadStatus {
   final String message;
   const Error(this.message);
@@ -44,20 +33,29 @@ class DirectoryProvider with ChangeNotifier {
 
   List<Character> _allItems = [];
   List<Character> get items => _allItems;
+
   LoadStatus _status = const Loading();
   LoadStatus get status => _status;
+
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
+
   bool _offlineMode = false;
   bool get offlineMode => _offlineMode;
+
   int _currentPage = 1;
   bool _hasNext = true;
+
   String _query = '';
   Set<int> _favorites = {};
   Set<int> get favorites => _favorites;
-  bool _isLoadingMore = false;
 
-  final _debouncer = Debouncer<String>(const Duration(milliseconds: 500), initialValue: '');
+  bool _isLoadingMore = false;
+  bool get isLoadingMore => _isLoadingMore;
+
+  bool get hasNext => _hasNext;
+
+  Timer? _debounceTimer;
 
   Future<void> init() async {
     _status = const Loading();
@@ -71,7 +69,7 @@ class DirectoryProvider with ChangeNotifier {
       }
       _loadFavorites();
     } catch (e) {
-      // ✅ If API fails, still try to load cache
+      // If API fails, still try cache
       if (_allItems.isEmpty) {
         try {
           _loadCache();
@@ -85,38 +83,55 @@ class DirectoryProvider with ChangeNotifier {
   }
 
   Future<void> _checkConnectivity() async {
-    final result = await connectivity.checkConnectivity();
-    _offlineMode = result == ConnectivityResult.none;
+    try {
+      final result = await connectivity.checkConnectivity();
+      if (result == ConnectivityResult.none) {
+        _offlineMode = true;
+      } else {
+        try {
+          final lookup = await InternetAddress.lookup('example.com')
+              .timeout(const Duration(seconds: 3));
+          _offlineMode = lookup.isEmpty || lookup[0].rawAddress.isEmpty;
+        } on SocketException {
+          _offlineMode = true;
+        } on TimeoutException {
+          _offlineMode = true;
+        }
+      }
+    } catch (_) {
+      _offlineMode = true;
+    }
+    notifyListeners(); // update offline banner
   }
 
   Future<void> _fetchPage() async {
     try {
-      print('Fetching page $_currentPage, hasNext: $_hasNext, current items: ${_allItems.length}');
       final (newItems, hasNext) = await repo.getPage(_currentPage);
-      print('Fetched ${newItems.length} new items, server hasNext: $hasNext');
+
       if (newItems.isEmpty && _allItems.isEmpty) {
         _status = const Empty();
       } else {
-        _allItems.addAll(newItems);
+        // De-dup and append
+        final ids = _allItems.map((e) => e.id).toSet();
+        _allItems.addAll(newItems.where((it) => !ids.contains(it.id)));
+
         _hasNext = hasNext;
         _status = const Success();
+
+        // write cache after a successful fetch
         repo.writeCache(cacheBox, _allItems, _currentPage, _hasNext);
-        print('Total items: ${_allItems.length}, updated hasNext: $_hasNext');
       }
     } on SocketException catch (e) {
-      // ✅ Handle network failure gracefully
-      print('SocketException: $e');
       _offlineMode = true;
-      _loadCache();
+      _errorMessage = e.toString();
+      _loadCache(); // fallback
     } catch (e) {
-      print('Fetch error: $e');
+      _errorMessage = e.toString();
       if (_allItems.isEmpty) {
-        // Try cache if available
         try {
           _loadCache();
         } catch (_) {
           _status = Error(e.toString());
-          _errorMessage = e.toString();
         }
       }
     } finally {
@@ -128,18 +143,11 @@ class DirectoryProvider with ChangeNotifier {
   void _loadCache() {
     try {
       final cached = repo.readCache(cacheBox);
-      if (cached != null && cached.items != null && cached.items is List<Character> && cached.items.isNotEmpty) {
-        _allItems = List<Character>.from(cached.items);
-        _currentPage = cached.page ?? 1;
-        _hasNext = cached.hasNext ?? false;
-        _status = const Success();
-        print('Cache loaded: ${_allItems.length} items, hasNext: $_hasNext');
-      } else {
-        _status = const Empty();
-        print('Cache empty or invalid');
-      }
+      _allItems = List<Character>.from(cached.items);
+      _currentPage = cached.page;
+      _hasNext = cached.hasNext;
+      _status = _allItems.isEmpty ? const Empty() : const Success();
     } catch (e) {
-      print('Cache error: $e');
       _status = Error(e.toString());
       _errorMessage = e.toString();
     }
@@ -148,7 +156,6 @@ class DirectoryProvider with ChangeNotifier {
 
   Future<void> loadMore() async {
     if (_isLoadingMore || !_hasNext || _offlineMode || _status is! Success) {
-      print('Load more skipped: loading=$_isLoadingMore, hasNext=$_hasNext, offline=$_offlineMode, status=$_status');
       return;
     }
     _isLoadingMore = true;
@@ -171,25 +178,34 @@ class DirectoryProvider with ChangeNotifier {
     await _fetchPage();
   }
 
-  Timer? _debounceTimer;
-
   void onSearchChanged(String value) {
-    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
+    _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
-      _query = value.trim();
-      _allItems.clear();
-      _currentPage = 1;
-      _hasNext = true;
-      _status = const Loading();
-      notifyListeners();
+      _query = value.trim().toLowerCase();
+
       if (_offlineMode) {
+        // Filter cached results
+        _status = const Loading();
+        notifyListeners();
         _loadCache();
-        _allItems = _allItems.where((c) => c.name.toLowerCase().contains(_query.toLowerCase())).toList();
+        _allItems = _allItems
+            .where((c) => c.name.toLowerCase().contains(_query))
+            .toList();
         _status = _allItems.isEmpty ? const Empty() : const Success();
         notifyListeners();
       } else {
+        // Re-fetch from first page, then filter client-side
+        _allItems.clear();
+        _currentPage = 1;
+        _hasNext = true;
+        _status = const Loading();
+        notifyListeners();
+
         await _fetchPage();
-        _allItems = _allItems.where((c) => c.name.toLowerCase().contains(_query.toLowerCase())).toList();
+
+        _allItems = _allItems
+            .where((c) => c.name.toLowerCase().contains(_query))
+            .toList();
         _status = _allItems.isEmpty ? const Empty() : const Success();
         notifyListeners();
       }
@@ -202,7 +218,7 @@ class DirectoryProvider with ChangeNotifier {
   }
 
   void toggleFavorite(int id, bool isFavorite) {
-    if (isFavorite) {
+    if (isFavorite && !_favorites.contains(id)) {
       favoritesBox.put(id, true);
       _favorites.add(id);
     } else {
@@ -216,6 +232,9 @@ class DirectoryProvider with ChangeNotifier {
     return _allItems.where((c) => _favorites.contains(c.id)).toList();
   }
 
-  bool get hasNext => _hasNext;
-  bool get isLoadingMore => _isLoadingMore;
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
 }

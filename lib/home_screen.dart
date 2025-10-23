@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:carousel_slider/carousel_slider.dart'; // Add this import for CardSetSlideshowScreen dependencies
 
 import ' features/directory/ presentation/card_set_slideshow_screen.dart';
 import ' features/directory/ presentation/directory_screen.dart';
+import ' features/directory/application/directory_provider.dart';
 import 'core/theme_provider.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,14 +17,19 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   static const List<Widget> _screens = [
-    DirectoryScreen(isFavorites: false),
-    DirectoryScreen(isFavorites: true), // Favorites tab
+    DirectoryScreen(isFavorites: false, enableRefreshIndicator: false),
+    DirectoryScreen(isFavorites: true,enableRefreshIndicator: false), // Favorites tab
   ];
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+  }
+  Future<void> _onRefresh(BuildContext context) async {
+    final vm = Provider.of<DirectoryProvider>(context, listen: false);
+    await vm.refresh();
+    // TODO: Add refresh logic for CardSetSlideshowScreen if needed
   }
 
   @override
@@ -78,10 +82,21 @@ class _HomeScreenState extends State<HomeScreen> {
               : NavigationBar(
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
+            backgroundColor: isDark ? Colors.grey[900] : Colors.white, // Background color for the navigation bar
+            indicatorColor: isDark ? Colors.purpleAccent : Colors.purple[100], // Color for the selected item's indicator
             destinations: const [
-              NavigationDestination(icon: Icon(Icons.list), label: 'All'),
-              NavigationDestination(icon: Icon(Icons.favorite), label: 'Favorites'),
+              NavigationDestination(
+                icon: Icon(Icons.list),
+                selectedIcon: Icon(Icons.list, color: Colors.purple), // Color for selected icon
+                label: 'All',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.favorite),
+                selectedIcon: Icon(Icons.favorite, color: Colors.purple), // Color for selected icon
+                label: 'Favorites',
+              ),
             ],
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           ),
         );
       },

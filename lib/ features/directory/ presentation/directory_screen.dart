@@ -4,50 +4,69 @@ import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../data/ models/character.dart';
-
 import '../application/directory_provider.dart';
 import 'character_detail_screen.dart';
 
 class DirectoryScreen extends StatefulWidget {
+  final bool enableRefreshIndicator;
   final bool isFavorites;
-  const DirectoryScreen({super.key, required this.isFavorites});
+
+  const DirectoryScreen({
+    super.key,
+    required this.isFavorites,
+    this.enableRefreshIndicator = true,
+  });
 
   @override
   State<DirectoryScreen> createState() => _DirectoryScreenState();
 }
 
 class _DirectoryScreenState extends State<DirectoryScreen> {
+  final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  double _scrollPosition = 0.0;
 
   @override
   void initState() {
     super.initState();
-    final vm = context.read<DirectoryProvider>();
-    // Initialize data (handles offline/online modes)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      vm.init();
-    });
+    // ❌ DO NOT call vm.init() here; it runs once from main() now.
     _scrollController.addListener(_onScroll);
   }
+
+
 
   void _onScroll() {
     final vm = context.read<DirectoryProvider>();
     if (widget.isFavorites) return;
+
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300 &&
         !vm.isLoadingMore &&
         vm.hasNext &&
         !vm.offlineMode) {
-      // Only load more if online
       vm.loadMore();
     }
+    _scrollPosition = _scrollController.position.pixels;
+  }
+
+  Future<void> _refresh(BuildContext context) async {
+    final vm = Provider.of<DirectoryProvider>(context, listen: false);
+    _scrollPosition = _scrollController.position.pixels;
+    await vm.refresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollPosition);
+      }
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +82,6 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
         return Column(
           children: [
-            // ✅ Offline banner
             if (vm.offlineMode)
               Container(
                 width: double.infinity,
@@ -75,7 +93,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                     const Icon(Icons.wifi_off, color: Colors.orange, size: 18),
                     const SizedBox(width: 8),
                     Text(
-                      'Offline - showing cached results',
+                      'Offline — showing cached results',
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
@@ -89,10 +107,25 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: TextField(
-                  onChanged: vm.onSearchChanged,
+                  controller: _searchController,
+                  onChanged: (value) {
+                    vm.onSearchChanged(value);
+                    setState(() {}); // Refresh UI when typing
+                  },
                   decoration: InputDecoration(
                     hintText: 'Search here...',
                     prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.close, color: Colors.grey),
+                      onPressed: () {
+                        _searchController.clear();
+                        vm.onSearchChanged(''); // ✅ Clear search results
+                        FocusScope.of(context).unfocus(); // Hide keyboard
+                        setState(() {}); // Refresh UI to hide the icon
+                      },
+                    )
+                        : null,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
@@ -110,18 +143,20 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.grey[100],
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    contentPadding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                     hintStyle: TextStyle(color: Colors.grey[600], fontSize: 16),
-
                   ),
                   style: const TextStyle(fontSize: 16, color: Colors.black87),
                   cursorColor: Colors.purple,
                 ),
               ),
 
+
             Expanded(
               child: RefreshIndicator(
-                onRefresh: vm.refresh,
+                // ✅ use our method to restore scroll position
+                onRefresh: () => _refresh(context),
                 child: Builder(
                   builder: (context) {
                     if (vm.status is Loading && items.isEmpty) {
@@ -190,7 +225,11 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
               height: 56,
               fit: BoxFit.cover,
               placeholder: (context, url) =>
-              const CircularProgressIndicator(strokeWidth: 2),
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
               errorWidget: (context, url, error) =>
               const Icon(Icons.broken_image),
             ),
@@ -204,7 +243,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
             vm.favorites.contains(c.id)
                 ? Icons.favorite
                 : Icons.favorite_border,
-            color: Theme.of(context).colorScheme.primary,
+            color: vm.favorites.contains(c.id) ? Colors.purple : Colors.grey,
           ),
           onPressed: () {
             vm.toggleFavorite(c.id, !vm.favorites.contains(c.id));
@@ -230,13 +269,11 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
       itemBuilder: (_, __) => Shimmer.fromColors(
         baseColor: Colors.grey[300]!,
         highlightColor: Colors.grey[100]!,
-        child: Card(
+        child: const Card(
           child: ListTile(
-            leading: const CircleAvatar(),
-            title: Container(
-                width: double.infinity, height: 8, color: Colors.white),
-            subtitle: Container(
-                width: double.infinity, height: 8, color: Colors.white),
+            leading: CircleAvatar(),
+            title: SizedBox(width: double.infinity, height: 8),
+            subtitle: SizedBox(width: double.infinity, height: 8),
           ),
         ),
       ),
